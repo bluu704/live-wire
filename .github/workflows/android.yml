@@ -1,0 +1,53 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APK
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 1.0.${{ github.run_number }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Rename
+        run: mv android/app/build/outputs/apk/release/app-release.apk LiveWire.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LiveWire-apk
+          path: LiveWire.apk
+
+      # Keep one always-current download link: .../releases/latest/download/LiveWire.apk
+      - name: Move the "latest" tag
+        run: |
+          git tag -f latest
+          git push -f origin latest
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Live Wire 1.0.${{ github.run_number }}
+          make_latest: true
+          files: LiveWire.apk
+          body: |
+            Latest build from `${{ github.sha }}`.
+            Download **LiveWire.apk** below and open it on your Android phone to install.
